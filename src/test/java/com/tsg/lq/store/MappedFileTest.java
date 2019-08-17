@@ -8,14 +8,15 @@ import org.junit.Test;
  */
 public class MappedFileTest {
 
-    private static final String DATA_DIR = "E:/test";
+    private static final String DATA_DIR = "E:/test/";
 
-    private static final String filename = "file1";
+//    private static final String filename = "E:/test/file1";
+    private static final String filename = "queue_testTopic_data_1";
 
     @Test
     public void testWrite(){
         try {
-            MappedFile mappedFile = MappedFile.createNew(DATA_DIR, filename);
+            MappedFile mappedFile = MappedFile.createNew(DATA_DIR,filename);
             for (int i = 0; i < 100;i++){
                 String str= "第"+ i +"条消息";
                 int write = mappedFile.write(str.getBytes());
@@ -28,7 +29,7 @@ public class MappedFileTest {
 
     @Test
     public void testRead()throws Exception{
-        MappedFile mappedFile = MappedFile.load(DATA_DIR, filename);
+        MappedFile mappedFile = MappedFile.load(DATA_DIR,filename);
         int i = mappedFile.get();
         while (i >= 0){
             System.out.println(i);

@@ -20,19 +20,20 @@ public class MappedFile {
 
     private static final Logger logger = LoggerFactory.getLogger(MappedFile.class);
 
-    private static final byte STATUS_EMPTY = 0; //空，默认状态
-    private static final byte STATUS_AVAILABLE = 1; //写入，待消费状态
-    private static final byte STATUS_BUSY = 2;  //正在被消费中
-    private static final byte STATUS_COMMIT = 3;  //消费成功
-    private static final int FULL_EXCEPTION = -1;   //队列文件写满
-    private static final int EMPTY_EXCEPTION = -2;  //队列文件空，没有要消费的消息
+    public static final byte STATUS_EMPTY = 0; //空，默认状态
+    public static final byte STATUS_AVAILABLE = 1; //写入，待消费状态
+    public static final byte STATUS_BUSY = 2;  //正在被消费中
+    public static final byte STATUS_COMMIT = 3;  //消费成功
+    public static final int FULL_EXCEPTION = -1;   //队列文件写满
+    public static final int EMPTY_EXCEPTION = -2;  //队列文件空，没有要消费的消息
 
-    private static final int DIR_ENTRY_SIZE = 5;    //记录一个消息的索引的大小，1 byte 记录状态， 1 int(4 byte) 记录消息在文件的地址
-    private static final int DIR_ENTRY_COUNT = 500000;  //一个文件最多存放的消息数
-    private static final int DIR_SIZE = DIR_ENTRY_COUNT * DIR_ENTRY_SIZE;    //一个队列文件存放索引的大小
+    public static final int DIR_ENTRY_SIZE = 5;    //记录一个消息的索引的大小，1 byte 记录状态， 1 int(4 byte) 记录消息在文件的地址
+    public static final int DIR_ENTRY_COUNT = 500000;  //一个文件最多存放的消息数
+    public static final int DIR_SIZE = DIR_ENTRY_COUNT * DIR_ENTRY_SIZE;    //一个队列文件存放索引的大小
 
     private String dataDir; //文件编号，单个文件大小上限
-    private String filename;    //具体文件名
+    private String fileName;    //具体文件名
+    private int fileNo;
     private RandomAccessFile raf;
     private FileChannel fc;
     private MappedByteBuffer mbb;
@@ -43,26 +44,34 @@ public class MappedFile {
     private int cacheSize;
     private ConcurrentHashMap<Integer, byte[]> msgMap = new ConcurrentHashMap();
 
-    private MappedFile(String dataDir, String filename) throws IOException{
+    private MappedFile(String dataDir,String fileName) throws IOException{
         try {
+            this.fileName = fileName;
             this.dataDir = dataDir;
-            this.filename = filename;
-            this.raf = new RandomAccessFile(dataDir + File.separator + this.filename, "rw");
+            this.raf = new RandomAccessFile(this.dataDir + File.separator + this.fileName, "rw");
             this.fc = this.raf.getChannel();
             this.mbb = this.fc.map(FileChannel.MapMode.READ_WRITE, 0L, DIR_SIZE);
         } catch (IOException e) {
-            logger.error("cannot create file(" + dataDir + File.separator + this.filename + ") e=" + e.getMessage());
+            logger.error("cannot create file(" + this.fileName + ") e=" + e.getMessage());
+            this.close();
             throw e;
         }
     }
 
-    public static MappedFile createNew(String dataDir, String filename)throws IOException{
-        MappedFile mappedFile = new MappedFile(dataDir,filename);
+    public static MappedFile createNew(String dataDir,String fileName)throws IOException{
+        MappedFile mappedFile = null;
 
-        for (int i = 0; i < DIR_ENTRY_COUNT; ++i) {
-            mappedFile.mbb.position(i * DIR_ENTRY_SIZE);
-            mappedFile.mbb.put(STATUS_EMPTY);
+        try {
+            mappedFile = new MappedFile(dataDir,fileName);
+            for (int i = 0; i < DIR_ENTRY_COUNT; ++i) {
+                mappedFile.mbb.position(i * DIR_ENTRY_SIZE);
+                mappedFile.mbb.put(STATUS_EMPTY);
+            }
+        }catch (IOException e){
+            logger.error("create new queue file fail,fileName = " + fileName);
+            throw e;
         }
+
 
         mappedFile.readPosition = 0;
         mappedFile.writePosition = 0;
@@ -74,11 +83,11 @@ public class MappedFile {
     }
 
     public int hashCode() {
-        return this.filename.hashCode();
+        return this.fileName.hashCode();
     }
 
     public boolean equals(Object b) {
-        return !(b instanceof MappedFile) ? false : this.filename.equals(((MappedFile) b).filename);
+        return !(b instanceof MappedFile) ? false : this.fileName.equals(((MappedFile) b).fileName);
     }
 
     public boolean writeCompleted() {
@@ -144,7 +153,7 @@ public class MappedFile {
                 this.raf.read(bs);
                 return bs;
             } catch (IOException e) {
-                logger.error("item() exception in (" + this.filename + ") e=" + e.getMessage());
+                logger.error("item() exception in (" + this.fileName + ") e=" + e.getMessage());
                 throw e;
             }
         } else {
@@ -195,7 +204,7 @@ public class MappedFile {
                 this.raf.writeShort(bs.length);
                 this.raf.write(bs);
             } catch (IOException e) {
-                logger.error("write() exception in (" + this.filename + ") e=" + e.getMessage());
+                logger.error("write() exception in (" + this.fileName + ") e=" + e.getMessage());
                 throw e;
             }
 
@@ -215,7 +224,7 @@ public class MappedFile {
      * 卸载
      */
     public void drop() {
-        (new File(this.dataDir + File.separator + this.filename)).delete();
+        (new File(this.dataDir + File.separator + this.fileName)).delete();
     }
 
     /**
@@ -328,7 +337,7 @@ public class MappedFile {
                 this.fc.close();
                 this.fc = null;
             } catch (Exception e1) {
-                logger.error("cannot close fc (" + this.filename + ")", e1);
+                logger.error("cannot close fc (" + this.fileName + ")", e1);
             }
         }
 
@@ -337,10 +346,21 @@ public class MappedFile {
                 this.raf.close();
                 this.raf = null;
             } catch (Exception e2) {
-                logger.error("cannot close raf (" + this.filename + ")", e2);
+                logger.error("cannot close raf (" + this.fileName + ")", e2);
             }
         }
 
     }
 
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public int getFileNo() {
+        return fileNo;
+    }
 }
