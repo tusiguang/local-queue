@@ -1,5 +1,6 @@
 package com.tsg.lq.store;
 
+import com.tsg.lq.common.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +44,7 @@ public class CommitLog {
         this.closed = false;
         this.dataDir = dataDir;
         this.topic = topic;
-        this.fileNamePrefix = "queue_" + this.topic + "_data_";
+        this.fileNamePrefix = Constants.DEFAULT_QUEUE_FILE_PREFIX + this.topic + Constants.DEFAULT_QUEUE_FILE_SUFFIX;
         try {
             init();
         }catch (IOException e){
@@ -54,7 +55,7 @@ public class CommitLog {
     }
 
 //    public String getFileNamePrefix() {
-//        return "queue_" + this.topic + "_data_";
+//        return Constants.DEFAULT_QUEUE_FILE_PREFIX + this.topic + Constants.DEFAULT_QUEUE_FILE_SUFFIX;
 //    }
 
     public String getFileName(int fileNo) {
