@@ -24,6 +24,14 @@ public class DefaultMessageStore implements MessageStore{
     private Timer timer;
 
 
+    /**
+     * TODO 感觉应该模仿tomcat, 生命周期管理！！！ 下版本待定吧
+     * @param dataDir
+     */
+    public DefaultMessageStore(String dataDir){
+        this.dataDir = dataDir;
+    }
+
     @Override
     public boolean load() {
 

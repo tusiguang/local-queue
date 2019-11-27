@@ -24,7 +24,7 @@ public class Message {
         this.idx = 0L;
         this.text = null;
         this.sendCount = 1;
-        this.createTime = System.currentTimeMillis();
+//        this.createTime = System.currentTimeMillis();
     }
 
     public Message(String topic, String uuid, Long idx, String text, Integer sendCount) {
@@ -40,7 +40,7 @@ public class Message {
         this.idx = -1L;
         this.text = null;
         this.sendCount = 1;
-        this.createTime = System.currentTimeMillis();
+//        this.createTime = System.currentTimeMillis();
     }
 
     public String getTopic() {
