@@ -16,6 +16,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -183,13 +184,20 @@ public class LocalQueueManager {
         if (idx == -1) {
             hasData = false;
         } else {
-            String text = commitLog.getString(idx);
-            message.setText(text);
-            message.setIdx(idx);
-            message.setSendCount(message.getSendCount() + 1);
-            message.setCreateTime(System.currentTimeMillis());
-            message.setUuid(UUID.randomUUID().toString().replaceAll("-",""));
-            consumeServiceMap.get(topic).consume(message);
+            CompletableFuture.runAsync(() -> {
+                String text = commitLog.getString(idx);
+                message.setText(text);
+                message.setIdx(idx);
+                message.setSendCount(message.getSendCount() + 1);
+                message.setCreateTime(System.currentTimeMillis());
+                message.setUuid(UUID.randomUUID().toString().replaceAll("-", ""));
+                consumeServiceMap.get(topic).listen(message);
+            }).thenRunAsync(() -> commit(message), pool
+            ).exceptionally(e -> {
+                logger.error("consume message error",e);
+                retry(message);
+                return null;
+            });
         }
         return hasData;
     }
@@ -218,11 +226,44 @@ public class LocalQueueManager {
     }
 
     public void rollback(Message message){
-
+        try {
+            CommitLog commitLog = messageStore.getQueueFile(message.getTopic());
+            if (commitLog == null) {
+                return;
+            }
+            commitLog.rollback(message.getIdx());
+        } catch (IOException e) {
+            logger.error("exception in rollback localqueue data = " + e.getMessage());
+        }finally {
+            message.reset();
+            pullRequestQueueMap.get(message.getTopic()).offer(message);
+        }
     }
 
     public void retry(Message message){
+        if (message.getSendCount() > message.getMaxSendCount()){
+            rollback(message);
+        }else {
+            message.setSendCount(message.getSendCount() + 1);
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    pullRequestQueueMap.get(message.getTopic()).offer(message);
+                }
+            },message.getRetryInterval());
+        }
+    }
 
+    public void register(String topic,ConsumeService consumer){
+        this.consumeServiceMap.put(topic,consumer);
+
+        int concurrentNum = consumer.getConcurrentNum();
+        LinkedBlockingQueue<Message> blockingQueue = new LinkedBlockingQueue<>();
+        for (int i = 0;i <concurrentNum; i++){
+            Message message = new Message(topic,consumer.getRetryTimes(),consumer.getRetryInterval());
+            blockingQueue.offer(message);
+        }
+        this.pullRequestQueueMap.put(topic,blockingQueue);
     }
 
 }

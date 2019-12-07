@@ -9,6 +9,30 @@ import com.tsg.lq.common.Message;
  */
 public interface ConsumeService {
 
-    void consume(Message message);
+    void listen(Message message);
+
+    /**
+     * 获取并发数
+     * @return
+     */
+    default int getConcurrentNum(){
+        return 1;
+    }
+
+    /**
+     * 获取重试时间间隔
+     * @return
+     */
+    default long getRetryInterval(){
+        return 1000;
+    }
+
+    /**
+     * 获取重试次数
+     * @return
+     */
+    default int getRetryTimes(){
+        return 3;
+    }
 
 }

@@ -15,25 +15,23 @@ public class Message {
 
     private int sendCount;
 
+    private int maxSendCount;
+
+    private long retryInterval;
+
     private long createTime;
 
 
-    public Message(String topic) {
+    public Message(String topic,Integer retryCount, long retryInterval) {
         this.topic = topic;
         this.uuid = null;
         this.idx = 0L;
         this.text = null;
         this.sendCount = 1;
-//        this.createTime = System.currentTimeMillis();
+        this.maxSendCount = retryCount;
+        this.retryInterval = retryInterval;
     }
 
-    public Message(String topic, String uuid, Long idx, String text, Integer sendCount) {
-        this.topic = topic;
-        this.uuid = uuid;
-        this.idx = idx;
-        this.text = text;
-        this.sendCount = sendCount;
-    }
 
     public void reset(){
         this.uuid = null;
@@ -82,6 +80,23 @@ public class Message {
     public void setSendCount(int sendCount) {
         this.sendCount = sendCount;
     }
+
+    public int getMaxSendCount() {
+        return maxSendCount;
+    }
+
+//    public void setMaxSendCount(int maxSendCount) {
+//        this.maxSendCount = maxSendCount;
+//    }
+
+
+    public long getRetryInterval() {
+        return retryInterval;
+    }
+
+//    public void setRetryInterval(long retryInterval) {
+//        this.retryInterval = retryInterval;
+//    }
 
     public long getCreateTime() {
         return createTime;
