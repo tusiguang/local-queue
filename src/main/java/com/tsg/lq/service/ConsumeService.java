@@ -9,7 +9,7 @@ import com.tsg.lq.common.Message;
  */
 public interface ConsumeService {
 
-    void listen(Message message);
+    void listen(Message message)throws Exception;
 
     /**
      * 获取并发数

@@ -129,6 +129,7 @@ public class LocalQueueManager {
                 sendData();
             }
         };
+        sendThread.start();
     }
 
     private void sendData() {
@@ -174,6 +175,32 @@ public class LocalQueueManager {
 
     }
 
+    //保存到队列
+    public boolean saveToQueue(String topic, String str) {
+        try {
+            CommitLog commitLog = messageStore.getQueueFile(topic);
+            commitLog.put(str);
+            waitingQueueNameList.add(topic);
+            wakeUpSendThread();
+            hasIOException.set(false);
+            return true;
+        } catch (Exception e) {
+            logger.error("cannot save data to local queue data={}" + e.getMessage());
+            hasIOException.set(true);
+            return false;
+        }
+    }
+
+    private void wakeUpSendThread(){
+        if (lock.tryLock()){
+            try {
+                hasNewData.signal();
+            }finally {
+                lock.unlock();
+            }
+        }
+    }
+
     private void sendByTopic(String topic){
 
     }
@@ -191,10 +218,14 @@ public class LocalQueueManager {
                 message.setSendCount(message.getSendCount() + 1);
                 message.setCreateTime(System.currentTimeMillis());
                 message.setUuid(UUID.randomUUID().toString().replaceAll("-", ""));
-                consumeServiceMap.get(topic).listen(message);
+                try {
+                    consumeServiceMap.get(topic).listen(message);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }).thenRunAsync(() -> commit(message), pool
             ).exceptionally(e -> {
-                logger.error("consume message error",e);
+                logger.error("consume message error", e);
                 retry(message);
                 return null;
             });
